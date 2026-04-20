@@ -1,0 +1,15 @@
+**Components List**
+
+1)piezoelectric discs
+2)Schottky diodes
+3)capacitors
+4)back discharge diode
+5)battery
+6)resistors
+7)n-MOSfet
+8)dc-dc buck convertor
+9)current sensor
+10)microcontroller(esp32 dev kit)
+11)temperature sensor
+
+
