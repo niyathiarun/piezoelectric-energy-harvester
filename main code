@@ -1,0 +1,84 @@
+#include <BluetoothSerial.h> 
+#include <DHT.h> 
+#define DHTPIN 4          
+// GPIO4 for DHT11 
+#define DHTTYPE DHT11 
+DHT dht(DHTPIN, DHTTYPE); 
+BluetoothSerial SerialBT; 
+const int voltageSensorPin = 39;  // ADC1 channel (GPIO39) 
+const int currentSensorPin = 35;  // ADC1 channel (GPIO35) 
+const int pwmPin = 26;             
+// PWM output pin 
+const float adcRef = 3.3; 
+const int adcResolution = 4095; 
+// Voltage divider ratio (adjust per your hardware) 
+const float voltageDividerRatio = 3.65; 
+// Calibrated ACS712 zero-current voltage offset 
+const float currentSensorOffsetVoltage = 2.0;  // from your measurement 
+// ACS712 sensitivity for 5A sensor in volts per amp 
+const float currentSensorSensitivity = 0.185; 
+const int pwmFreq = 5000; 
+const int pwmResolution = 10; // 10 bit resolution 
+const int pwmMax = 1023; 
+const int pwmMin = 0; 
+int pwmDuty = 512; 
+const int pwmStep = 10; 
+float prevPower = 0; 
+void setup() { 
+  Serial.begin(9600); 
+  SerialBT.begin("ESP32_MPPT"); 
+ 
+  if(!ledcAttach(pwmPin, pwmFreq, pwmResolution)) { 
+    Serial.println("PWM attach failed"); 
+    while(1); 
+  } 
+  ledcWrite(pwmPin, pwmDuty); 
+ 
+  dht.begin(); 
+  delay(1000); 
+ 
+  Serial.println("MPPT AI Algorithm Started with Bluetooth output"); 
+  SerialBT.println("MPPT AI Algorithm Started with Bluetooth output"); 
+} 
+ 
+float readVoltage() { 
+  int adcValue = analogRead(voltageSensorPin); 
+  float voltage = (adcValue * adcRef / adcResolution) * voltageDividerRatio; 
+  return voltage; 
+} 
+ 
+float readCurrent() { 
+  int adcValue = analogRead(currentSensorPin); 
+  float voltage = (adcValue * adcRef) / adcResolution; 
+  float current = (voltage - currentSensorOffsetVoltage) / currentSensorSensitivity; 
+  return (current < 0) ? 0 : current; 
+} 
+ 
+void loop() { 
+  float voltage = readVoltage(); 
+  float current = readCurrent(); 
+ float power = voltage * current; 
+ 
+  if(power > prevPower) { 
+    pwmDuty = min(pwmDuty + pwmStep, pwmMax); 
+  }  
+else 
+ { 
+    pwmDuty = max(pwmDuty - pwmStep, pwmMin); 
+  } 
+  ledcWrite(pwmPin, pwmDuty); 
+  prevPower = power; 
+ 
+  float temperature = dht.readTemperature(); 
+ 
+  String output = "Voltage: " + String(voltage, 2) + " V, " 
+                + "Current: " + String(current, 2) + " A, " 
+                + "Power: " + String(power, 2) + " W, " 
+                + "PWM Duty: " + String(pwmDuty) + ", " 
+                + "Temperature: " + String(temperature, 2) + " C, "; 
+ 
+  Serial.println(output); 
+  SerialBT.println(output); 
+ 
+  delay(1000); 
+}
